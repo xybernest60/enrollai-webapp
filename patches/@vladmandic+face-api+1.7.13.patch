@@ -1,0 +1,42 @@
+diff --git a/node_modules/@vladmandic/face-api/dist/face-api.esm.js b/node_modules/@vladmandic/face-api/dist/face-api.esm.js
+index a63f733..4a514d2 100644
+--- a/node_modules/@vladmandic/face-api/dist/face-api.esm.js
++++ b/node_modules/@vladmandic/face-api/dist/face-api.esm.js
+@@ -5855,8 +5855,8 @@
+         this.fetch = fetch;
+         this.readFile = readFile;
+         // eslint-disable-next-line @typescript-eslint/no-this-alias
+         const self = this;
+-        this.util = { TextEncoder: self.TextEncoder, TextDecoder: self.TextDecoder };
++        this.util = { TextEncoder: typeof TextEncoder !== 'undefined' ? TextEncoder : undefined, TextDecoder: typeof TextDecoder !== 'undefined' ? TextDecoder : undefined };
+     }
+ }
+ const env = new Environment();
+diff --git a/node_modules/@vladmandic/face-api/dist/face-api.js b/node_modules/@vladmandic/face-api/dist/face-api.js
+index 4016629..b8f9e67 100644
+--- a/node_modules/@vladmandic/face-api/dist/face-api.js
++++ b/node_modules/@vladmandic/face-api/dist/face-api.js
+@@ -6288,7 +6288,7 @@
+         this.fetch = fetch;
+         this.readFile = readFile;
+         // eslint-disable-next-line @typescript-eslint/no-this-alias
+         const self = this;
+-        this.util = { TextEncoder: self.TextEncoder, TextDecoder: self.TextDecoder };
++        this.util = { TextEncoder: typeof TextEncoder !== 'undefined' ? TextEncoder : undefined, TextDecoder: typeof TextDecoder !== 'undefined' ? TextDecoder : undefined };
+     }
+ }
+ const env = new Environment();
+diff --git a/node_modules/@vladmandic/face-api/dist/face-api.module.js b/node_modules/@vladmandic/face-api/dist/face-api.module.js
+index a63f733..4a514d2 100644
+--- a/node_modules/@vladmandic/face-api/dist/face-api.module.js
++++ b/node_modules/@vladmandic/face-api/dist/face-api.module.js
+@@ -5855,8 +5855,8 @@
+         this.fetch = fetch;
+         this.readFile = readFile;
+         // eslint-disable-next-line @typescript-eslint/no-this-alias
+         const self = this;
+-        this.util = { TextEncoder: self.TextEncoder, TextDecoder: self.TextDecoder };
++        this.util = { TextEncoder: typeof TextEncoder !== 'undefined' ? TextEncoder : undefined, TextDecoder: typeof TextDecoder !== 'undefined' ? TextDecoder : undefined };
+     }
+ }
+ const env = new Environment();

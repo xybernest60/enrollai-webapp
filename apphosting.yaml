@@ -1,0 +1,24 @@
+# Settings to manage and configure a Firebase App Hosting backend.
+# https://firebase.google.com/docs/app-hosting/configure
+
+runConfig:
+  # Increase this value if you'd like to automatically spin up
+  # more instances in response to increased traffic.
+  maxInstances: 1
+# Required for Next.js applications to run on App Hosting
+# https://firebase.google.com/docs/app-hosting/frameworks/nextjs
+headers:
+  - key: 'x-frame-options'
+    value: 'SAMEORIGIN'
+  - key: 'x-xss-protection'
+    value: '1; mode=block'
+  - key: 'x-content-type-options'
+    value: 'nosniff'
+  - key: 'referrer-policy'
+    value: 'no-referrer'
+  - key: 'content-security-policy'
+    value: "frame-ancestors 'self'"
+  - key: 'cross-origin-opener-policy'
+    value: 'same-origin'
+  - key: 'permissions-policy'
+    value: "geolocation=(), midi=(), sync-xhr=(), microphone=(), camera=(), magnetometer=(), gyroscope=(), fullscreen=(), payment=()"

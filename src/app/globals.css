@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 189 87% 97%; /* Text color from palette */
+    --foreground: 188 80% 2%; /* Background color from palette */
+    --card: 0 0% 100%;
+    --card-foreground: 188 80% 2%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 188 80% 2%;
+    --primary: 187 86% 48%; /* Primary color from palette */
+    --primary-foreground: 189 87% 97%; /* Text color from palette */
+    --secondary: 224 85% 90%; /* Lighter version of secondary */
+    --secondary-foreground: 224 85% 26%; /* Secondary color from palette */
+    --muted: 224 85% 90%;
+    --muted-foreground: 224 85% 40%;
+    --accent: 239 86% 92%; /* Lighter version of accent */
+    --accent-foreground: 239 86% 36%; /* Accent color from palette */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 224 85% 85%;
+    --input: 224 85% 88%;
+    --ring: 187 86% 48%;
+    --chart-1: 187 86% 48%;
+    --chart-2: 187 86% 58%;
+    --chart-3: 224 85% 46%;
+    --chart-4: 224 85% 56%;
+    --chart-5: 239 86% 56%;
+    --radius: 0.5rem;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 188 80% 2%;
+    --sidebar-primary: 187 86% 48%;
+    --sidebar-primary-foreground: 189 87% 97%;
+    --sidebar-accent: 224 85% 90%;
+    --sidebar-accent-foreground: 188 80% 2%;
+    --sidebar-border: 224 85% 85%;
+    --sidebar-ring: 187 86% 48%;
+  }
+
+  .dark {
+    --background: 188 80% 2%; /* Background color from palette */
+    --foreground: 189 87% 97%; /* Text color from palette */
+    --card: 188 80% 5%; /* Slightly lighter than background */
+    --card-foreground: 189 87% 97%;
+    --popover: 188 80% 2%;
+    --popover-foreground: 189 87% 97%;
+    --primary: 187 86% 48%; /* Primary color from palette */
+    --primary-foreground: 188 80% 2%;
+    --secondary: 224 85% 26%; /* Secondary color from palette */
+    --secondary-foreground: 189 87% 97%;
+    --muted: 224 85% 26%;
+    --muted-foreground: 189 87% 85%;
+    --accent: 239 86% 36%; /* Accent color from palette */
+    --accent-foreground: 189 87% 97%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 224 85% 26%;
+    --input: 224 85% 16%;
+    --ring: 187 86% 48%;
+    --sidebar-background: 188 80% 4%;
+    --sidebar-foreground: 189 87% 97%;
+    --sidebar-primary: 187 86% 48%;
+    --sidebar-primary-foreground: 188 80% 2%;
+    --sidebar-accent: 224 85% 16%;
+    --sidebar-accent-foreground: 189 87% 97%;
+    --sidebar-border: 224 85% 26%;
+    --sidebar-ring: 187 86% 48%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
