@@ -2,7 +2,7 @@
 import AdminLayout from "@/components/admin/admin-layout";
 import { SessionManager } from "@/components/admin/session-manager";
 import { Logo } from "@/components/logo";
-import { supabase } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase";
 
 export default async function SessionsPage() {
 
