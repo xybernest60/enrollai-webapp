@@ -24,6 +24,7 @@ import {
   UserPlus,
   Home,
   LogIn,
+  Clock,
 } from "lucide-react";
 import { ThemeToggle } from "../theme-toggle";
 
@@ -32,6 +33,7 @@ const menuItems = [
   { href: "/enroll", label: "Enroll", icon: UserPlus },
   { href: "/admin/students", label: "Students", icon: Users },
   { href: "/admin/attendance", label: "Attendance", icon: CalendarCheck },
+  { href: "/admin/sessions", label: "Sessions", icon: Clock },
   { href: "/check-in", label: "Check-in Kiosk", icon: LogIn },
   { href: "/", label: "Home", icon: Home },
 ];
