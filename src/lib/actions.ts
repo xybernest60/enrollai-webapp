@@ -77,3 +77,82 @@ export async function deleteSession(sessionId: string) {
     revalidatePath('/admin/sessions');
     return { message: 'Session deleted successfully.' };
 }
+
+const classSchema = z.object({
+  name: z.string().min(1, "Class name is required."),
+});
+
+export async function createClass(values: z.infer<typeof classSchema>) {
+    const validatedFields = classSchema.safeParse(values);
+
+    if (!validatedFields.success) {
+        return { errors: validatedFields.error.flatten().fieldErrors };
+    }
+
+    const { error } = await supabase.from('classes').insert(validatedFields.data);
+
+    if (error) {
+        console.error('Error creating class:', error);
+        if (error.code === '23505') {
+            return { error: 'A class with this name already exists.' };
+        }
+        return { error: `Database Error: ${error.message}` };
+    }
+    
+    revalidatePath('/admin/classes');
+    return {};
+}
+
+export async function deleteClass(classId: string) {
+    if (!classId) {
+        return { error: 'Class ID is required.' };
+    }
+
+    const { error } = await supabase.from('classes').delete().eq('id', classId);
+    
+    if (error) {
+        console.error('Error deleting class:', error);
+        return { error: `Database Error: ${error.message}` };
+    }
+
+    revalidatePath('/admin/classes');
+    return { message: 'Class deleted successfully.' };
+}
+
+export async function updateEnrollments(classId: string, studentIds: string[]) {
+    if (!classId) {
+        return { error: 'Class ID is required.' };
+    }
+
+    // First, delete all existing enrollments for this class
+    const { error: deleteError } = await supabase
+        .from('enrollments')
+        .delete()
+        .eq('class_id', classId);
+
+    if (deleteError) {
+        console.error('Error clearing existing enrollments:', deleteError);
+        return { error: `Database Error: ${deleteError.message}` };
+    }
+
+    // Then, if there are any students to enroll, insert the new ones
+    if (studentIds.length > 0) {
+        const enrollmentsToInsert = studentIds.map(student_id => ({
+            class_id: classId,
+            student_id: student_id,
+        }));
+
+        const { error: insertError } = await supabase
+            .from('enrollments')
+            .insert(enrollmentsToInsert);
+
+        if (insertError) {
+            console.error('Error inserting new enrollments:', insertError);
+            return { error: `Database Error: ${insertError.message}` };
+        }
+    }
+
+    revalidatePath(`/admin/classes/${classId}/enrollments`);
+    revalidatePath('/admin/classes');
+    return { message: 'Enrollments updated successfully.' };
+}

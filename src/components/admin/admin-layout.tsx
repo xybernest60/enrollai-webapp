@@ -25,6 +25,7 @@ import {
   Home,
   LogIn,
   Clock,
+  BookOpen,
 } from "lucide-react";
 import { ThemeToggle } from "../theme-toggle";
 
@@ -32,8 +33,9 @@ const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
   { href: "/enroll", label: "Enroll", icon: UserPlus },
   { href: "/admin/students", label: "Students", icon: Users },
-  { href: "/admin/attendance", label: "Attendance", icon: CalendarCheck },
+  { href: "/admin/classes", label: "Classes", icon: BookOpen },
   { href: "/admin/sessions", label: "Sessions", icon: Clock },
+  { href: "/admin/attendance", label: "Attendance", icon: CalendarCheck },
   { href: "/check-in", label: "Check-in Kiosk", icon: LogIn },
   { href: "/", label: "Home", icon: Home },
 ];
@@ -51,7 +53,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton
                     asChild
-                    isActive={pathname === item.href}
+                    isActive={pathname.startsWith(item.href) && (item.href !== '/' || pathname === '/')}
                     tooltip={item.label}
                   >
                     <Link href={item.href}>
