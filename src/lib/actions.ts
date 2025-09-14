@@ -154,5 +154,81 @@ export async function updateEnrollments(classId: string, studentIds: string[]) {
 
     revalidatePath(`/admin/classes/${classId}/enrollments`);
     revalidatePath('/admin/classes');
+    revalidatePath('/admin/students');
     return { message: 'Enrollments updated successfully.' };
+}
+
+const updateStudentSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters."),
+  rfid_uid: z.string().min(4, "RFID UID must be at least 4 characters.").optional().nullable(),
+  original_rfid_uid: z.string().optional().nullable(),
+  image_url: z.string().url().optional().nullable(),
+});
+
+export async function updateStudent(studentId: string, values: z.infer<typeof updateStudentSchema>) {
+    if (!studentId) {
+        return { error: 'Student ID is required.' };
+    }
+
+    const validatedFields = updateStudentSchema.safeParse(values);
+    if (!validatedFields.success) {
+        return { errors: validatedFields.error.flatten().fieldErrors };
+    }
+    
+    const { name, rfid_uid, original_rfid_uid, image_url } = validatedFields.data;
+
+    // 1. Rename image in storage if RFID UID has changed
+    if (rfid_uid && original_rfid_uid && rfid_uid !== original_rfid_uid && image_url) {
+        try {
+            const oldPath = new URL(image_url).pathname.split('/student-photos/')[1];
+            const fileExtension = oldPath.split('.').pop();
+            const newPath = `${rfid_uid}.${fileExtension}`;
+            
+            const { error: moveError } = await supabase.storage
+                .from('student-photos')
+                .move(oldPath, newPath);
+
+            if (moveError) {
+                // If file doesn't exist, we can ignore, otherwise throw
+                if (moveError.message !== 'The resource was not found') {
+                    console.error("Error renaming student photo:", moveError);
+                    throw new Error(`Storage Error: ${moveError.message}`);
+                }
+            }
+        } catch (e: any) {
+             return { error: e.message };
+        }
+    }
+    
+    // 2. Get the potentially new public URL
+    let newImageUrl = image_url;
+    if (rfid_uid && rfid_uid !== original_rfid_uid && image_url) {
+         const fileExtension = new URL(image_url).pathname.split('.').pop();
+         const newPath = `${rfid_uid}.${fileExtension}`;
+         const { data: urlData } = supabase.storage
+            .from('student-photos')
+            .getPublicUrl(newPath);
+        newImageUrl = urlData.publicUrl;
+    }
+
+    // 3. Update the student record in the database
+    const { error: dbError } = await supabase
+        .from('students')
+        .update({
+            name,
+            rfid_uid,
+            image_url: newImageUrl,
+        })
+        .eq('id', studentId);
+
+    if (dbError) {
+        console.error("Error updating student record:", dbError);
+        if (dbError.code === '23505') { // unique constraint violation
+            return { error: 'This RFID UID is already in use by another student.' };
+        }
+        return { error: `Database Error: ${dbError.message}` };
+    }
+
+    revalidatePath('/admin/students');
+    return { message: 'Student updated successfully.' };
 }

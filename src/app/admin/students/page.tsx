@@ -20,7 +20,7 @@ export default async function StudentsPage({
 
   let studentQuery = supabase.from('students').select(`
       *,
-      enrollments!inner (
+      enrollments (
         classes (
           id,
           name
@@ -29,7 +29,18 @@ export default async function StudentsPage({
     `);
 
   if (classId) {
-    studentQuery = studentQuery.eq('enrollments.class_id', classId);
+    // This is tricky with the many-to-many. We need to filter students who have an enrollment for the given classId.
+    // The RPC approach is better for complex filters, but for this, a text search on the join might work if performance is not critical.
+    // Or, more correctly, filter on the join table.
+     studentQuery = supabase.from('students').select(`
+      *,
+      enrollments!inner (
+        classes (
+          id,
+          name
+        )
+      )
+    `).eq('enrollments.class_id', classId);
   }
 
   if (query) {
@@ -45,16 +56,34 @@ export default async function StudentsPage({
     console.error("Error fetching students", error);
   }
 
+  // Due to the join, a student might appear multiple times if enrolled in multiple classes.
+  // We need to group the enrollments for each unique student.
+  const studentMap = new Map();
+  if (students) {
+    students.forEach(student => {
+      const existingStudent = studentMap.get(student.id);
+      if (existingStudent) {
+        // If student is already in the map, just add the new enrollment info
+        if (student.enrollments) {
+           const newEnrollments = Array.isArray(student.enrollments) ? student.enrollments : [student.enrollments];
+           existingStudent.enrollments.push(...newEnrollments);
+        }
+      } else {
+        // If student is not in the map, add them
+        const newEnrollments = student.enrollments ? (Array.isArray(student.enrollments) ? student.enrollments : [student.enrollments]) : [];
+        studentMap.set(student.id, { ...student, enrollments: newEnrollments });
+      }
+    });
+  }
+  const uniqueStudents = Array.from(studentMap.values());
+
+
   // Fetch all classes for the filter dropdown
   const { data: classes, error: classesError } = await supabase.from('classes').select('id, name');
 
   if (classesError) {
     console.error("Error fetching classes", classesError);
   }
-
-  const uniqueStudents = students 
-    ? Array.from(new Map(students.map(s => [s.id, s])).values())
-    : [];
 
   return (
     <AdminLayout>
