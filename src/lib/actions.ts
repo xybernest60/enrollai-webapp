@@ -18,7 +18,7 @@ export async function createSession(formData: FormData) {
     const rawFormData = Object.fromEntries(formData.entries());
 
     // Manual boolean conversion
-    rawFormData.is_recurring = rawFormData.is_recurring === 'on';
+    rawFormData.is_recurring = rawFormData.is_recurring === 'true';
 
     const validatedFields = sessionSchema.safeParse(rawFormData);
 
