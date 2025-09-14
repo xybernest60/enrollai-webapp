@@ -6,12 +6,12 @@ import { AttendanceReport } from "@/components/admin/attendance/attendance-repor
 export default async function AttendancePage({
     searchParams,
 }: {
-    searchParams?: { [key: string]: string | string[] | undefined };
+    searchParams: { [key: string]: string | string[] | undefined };
 }) {
 
-    const classId = searchParams?.classId as string | undefined;
-    const sessionId = searchParams?.sessionId as string | undefined;
-    const date = searchParams?.date as string | undefined;
+    const classId = searchParams.classId as string | undefined;
+    const sessionId = searchParams.sessionId as string | undefined;
+    const date = searchParams.date as string | undefined;
 
     // Fetch all classes for the filter dropdown
     const { data: classes, error: classesError } = await supabase

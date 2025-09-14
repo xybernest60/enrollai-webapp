@@ -281,12 +281,25 @@ export async function getAttendanceReportData(sessionId: string, date: string) {
     const startOfDay = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()).toISOString();
     const endOfDay = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate() + 1).toISOString();
 
-    const { data: attendanceRecords, error: attendanceError } = await supabase
+    // Check if a session_id is available in attendance table, if not then it's a legacy record
+    // and we should query by class_id
+    const { data: checkHasSessionId } = await supabase.from('attendance').select('session_id').limit(1).single();
+    const hasSessionId = checkHasSessionId?.session_id;
+
+    let attendanceQuery = supabase
         .from('attendance')
         .select('student_id, checkin_time, verified_by_face')
-        .eq('session_id', sessionId)
         .gte('checkin_time', startOfDay)
         .lt('checkin_time', endOfDay);
+
+    if (hasSessionId) {
+        attendanceQuery = attendanceQuery.eq('session_id', sessionId);
+    } else {
+        attendanceQuery = attendanceQuery.eq('class_id', class_id);
+    }
+
+
+    const { data: attendanceRecords, error: attendanceError } = await attendanceQuery;
 
     if (attendanceError) {
         console.error(`Error fetching attendance for session ${sessionId} on ${date}:`, attendanceError);
@@ -307,16 +320,18 @@ export async function getAttendanceReportData(sessionId: string, date: string) {
         
         if (checkIn) {
             checkinTime = checkIn.checkin_time;
-            const sessionStartTime = new Date(start_time);
-            const sessionEndTime = new Date(end_time);
-            const studentCheckinTime = new Date(checkinTime);
+            const sessionEndTimeUTC = new Date(end_time); // e.g., 1970-01-01T10:15:00Z
+            const studentCheckinTimeUTC = new Date(checkinTime); // e.g., 2024-05-21T10:14:00Z
 
-            // We only care about the time, so set the date part to be the same
-            sessionStartTime.setFullYear(2000, 0, 1);
-            sessionEndTime.setFullYear(2000, 0, 1);
-            studentCheckinTime.setFullYear(2000, 0, 1);
+            // Extract just the time from both dates
+            const sessionEndHours = sessionEndTimeUTC.getUTCHours();
+            const sessionEndMinutes = sessionEndTimeUTC.getUTCMinutes();
             
-            if (studentCheckinTime <= sessionEndTime) {
+            const checkinHours = studentCheckinTimeUTC.getUTCHours();
+            const checkinMinutes = studentCheckinTimeUTC.getUTCMinutes();
+
+            // Compare times
+            if (checkinHours < sessionEndHours || (checkinHours === sessionEndHours && checkinMinutes <= sessionEndMinutes)) {
                 status = 'on-time';
             } else {
                 status = 'late';
