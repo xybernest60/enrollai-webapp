@@ -96,89 +96,91 @@ export function StudentsTable({ students: initialStudents }: { students: Student
 
   return (
     <>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[80px]">Image</TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>RFID UID</TableHead>
-            <TableHead>Enrolled On</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {students.length === 0 && (
+      <div className="border rounded-md mt-4">
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={5} className="h-24 text-center">
-                No students enrolled yet.
-              </TableCell>
+              <TableHead className="w-[80px]">Image</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>RFID UID</TableHead>
+              <TableHead>Enrolled On</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
-          )}
-          {students.map((student) => {
-            return (
-            <TableRow key={student.id}>
-              <TableCell>
-                <Avatar className="h-10 w-10">
-                   {student.image_url ? (
-                    <Image
-                      src={student.image_url}
-                      alt={student.name}
-                      width={40}
-                      height={40}
-                      className="rounded-full object-cover"
-                      data-ai-hint="student photo"
-                    />
+          </TableHeader>
+          <TableBody>
+            {students.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="h-24 text-center">
+                  No students match the current filters.
+                </TableCell>
+              </TableRow>
+            )}
+            {students.map((student) => {
+              return (
+              <TableRow key={student.id}>
+                <TableCell>
+                  <Avatar className="h-10 w-10">
+                    {student.image_url ? (
+                      <Image
+                        src={student.image_url}
+                        alt={student.name}
+                        width={40}
+                        height={40}
+                        className="rounded-full object-cover"
+                        data-ai-hint="student photo"
+                      />
+                    ) : (
+                      <AvatarFallback>
+                        {student.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+                </TableCell>
+                <TableCell className="font-medium">{student.name}</TableCell>
+                <TableCell>
+                  {student.rfid_uid ? (
+                    <Badge variant="secondary">{student.rfid_uid}</Badge>
                   ) : (
-                    <AvatarFallback>
-                      {student.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </AvatarFallback>
+                    <span className="text-muted-foreground">N/A</span>
                   )}
-                </Avatar>
-              </TableCell>
-              <TableCell className="font-medium">{student.name}</TableCell>
-              <TableCell>
-                {student.rfid_uid ? (
-                  <Badge variant="secondary">{student.rfid_uid}</Badge>
-                ) : (
-                  <span className="text-muted-foreground">N/A</span>
-                )}
-              </TableCell>
-              <TableCell>{formatDate(student.created_at)}</TableCell>
-              <TableCell className="text-right">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0">
-                      <span className="sr-only">Open menu</span>
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <DropdownMenuItem
-                      onClick={() =>
-                        toast({ title: "Edit action is not yet implemented." })
-                      }
-                    >
-                      <Pencil className="mr-2 h-4 w-4" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                      onClick={() => handleDeleteClick(student)}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          )})}
-        </TableBody>
-      </Table>
+                </TableCell>
+                <TableCell>{formatDate(student.created_at)}</TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 w-8 p-0">
+                        <span className="sr-only">Open menu</span>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuItem
+                        onClick={() =>
+                          toast({ title: "Edit action is not yet implemented." })
+                        }
+                      >
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                        onClick={() => handleDeleteClick(student)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            )})}
+          </TableBody>
+        </Table>
+      </div>
       <AlertDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}

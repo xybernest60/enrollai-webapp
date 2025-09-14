@@ -2,20 +2,59 @@
 import AdminLayout from "@/components/admin/admin-layout";
 import { StudentsTable } from "@/components/admin/students-table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/admin";
 import { PlusCircle } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/logo";
+import { StudentsToolbar } from "@/components/admin/students-toolbar";
 
-export default async function StudentsPage() {
+export default async function StudentsPage({
+  searchParams,
+}: {
+  searchParams?: { [key: string]: string | string[] | undefined };
+}) {
+  const classId = searchParams?.class as string | undefined;
+  const sortBy = searchParams?.sort as string | undefined;
+  const query = searchParams?.q as string | undefined;
 
-  const { data: students, error } = await supabase.from('students').select('*').order('created_at', { ascending: false });
+  let studentQuery = supabase.from('students').select(`
+      *,
+      enrollments!inner (
+        classes (
+          id,
+          name
+        )
+      )
+    `);
+
+  if (classId) {
+    studentQuery = studentQuery.eq('enrollments.class_id', classId);
+  }
+
+  if (query) {
+    studentQuery = studentQuery.ilike('name', `%${query}%`);
+  }
+
+  const [sortField, sortOrder] = sortBy?.split('-') || ['created_at', 'desc'];
+  studentQuery = studentQuery.order(sortField, { ascending: sortOrder === 'asc' });
+
+  const { data: students, error } = await studentQuery;
 
   if (error) {
     console.error("Error fetching students", error);
   }
 
+  // Fetch all classes for the filter dropdown
+  const { data: classes, error: classesError } = await supabase.from('classes').select('id, name');
+
+  if (classesError) {
+    console.error("Error fetching classes", classesError);
+  }
+
+  const uniqueStudents = students 
+    ? Array.from(new Map(students.map(s => [s.id, s])).values())
+    : [];
 
   return (
     <AdminLayout>
@@ -44,11 +83,12 @@ export default async function StudentsPage() {
           <CardHeader>
             <CardTitle>Student Roster</CardTitle>
             <CardDescription>
-              A list of all students currently enrolled in the system.
+              Filter, sort, and manage all students currently in the system.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <StudentsTable students={students ?? []} />
+            <StudentsToolbar classes={classes ?? []} />
+            <StudentsTable students={uniqueStudents} />
           </CardContent>
         </Card>
       </div>
