@@ -74,16 +74,26 @@ const SidebarProvider = React.forwardRef<
   ) => {
     const isMobile = useIsMobile()
     const [openMobile, setOpenMobile] = React.useState(false)
+    const [isMounted, setIsMounted] = React.useState(false);
     
-    const [isLocked, setIsLocked] = React.useState(() => {
-        const cookieValue = getCookie(SIDEBAR_LOCK_COOKIE_NAME);
-        return cookieValue ? JSON.parse(cookieValue) : false;
-    });
+    // Default to false on the server and during initial client render
+    const [isLocked, setIsLocked] = React.useState(false);
+    const [_open, _setOpen] = React.useState(false);
 
-    const [_open, _setOpen] = React.useState(() => {
-         const cookieValue = getCookie(SIDEBAR_COOKIE_NAME);
-        return cookieValue ? JSON.parse(cookieValue) : false;
-    })
+    React.useEffect(() => {
+        // This runs only on the client, after the initial render
+        const lockedCookie = getCookie(SIDEBAR_LOCK_COOKIE_NAME);
+        const openCookie = getCookie(SIDEBAR_COOKIE_NAME);
+        
+        if (lockedCookie) {
+            setIsLocked(JSON.parse(lockedCookie));
+        }
+        if (openCookie) {
+            _setOpen(JSON.parse(openCookie));
+        }
+        setIsMounted(true);
+    }, []);
+
     const open = _open
     
     const setOpen = React.useCallback(
@@ -122,7 +132,7 @@ const SidebarProvider = React.forwardRef<
       return () => window.removeEventListener("keydown", handleKeyDown)
     }, [toggleSidebar])
 
-    const state = open || isLocked ? "expanded" : "collapsed"
+    const state = (open || isLocked) ? "expanded" : "collapsed"
 
     const contextValue = React.useMemo<SidebarContext>(
       () => ({
@@ -138,6 +148,11 @@ const SidebarProvider = React.forwardRef<
       }),
       [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar, isLocked, toggleLock]
     )
+
+    if (!isMounted) {
+        // Render a skeleton or null on the server and initial client render
+        return null;
+    }
 
     return (
       <SidebarContext.Provider value={contextValue}>
@@ -208,7 +223,7 @@ const Sidebar = React.forwardRef<
           <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
-            className="w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+            className="w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground"
             style={
               {
                 "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -791,5 +806,7 @@ export {
   SidebarTrigger,
   useSidebar,
 }
+
+    
 
     
