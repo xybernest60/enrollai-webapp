@@ -35,7 +35,7 @@ export default async function EnrollmentPage({ params }: { params: { id: string 
     if (studentsError) console.error("Error fetching students:", studentsError.message);
     if (enrollmentsError) console.error("Error fetching enrollments:", enrollmentsError.message);
 
-    const enrolledStudentIds = new Set(enrollments?.map(e => e.student_id) ?? []);
+    const enrolledStudentIds = new Set((enrollments ?? []).map(e => e.student_id));
 
     return (
         <AdminLayout>
