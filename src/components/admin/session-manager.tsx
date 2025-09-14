@@ -106,7 +106,9 @@ export function SessionManager({ classes, sessions }: SessionManagerProps) {
   
   const formatTime = (timeString: string) => {
     if (!timeString) return '';
-    return new Date(timeString).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    // The time is stored as `1970-01-01THH:mm:ss`
+    // We can just extract the HH:mm part
+    return timeString.substring(11, 16);
   }
 
   return (
@@ -285,3 +287,5 @@ export function SessionManager({ classes, sessions }: SessionManagerProps) {
     </div>
   );
 }
+
+    
