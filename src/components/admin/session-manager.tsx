@@ -377,7 +377,7 @@ export function SessionManager({ classes = [], sessions = [], showForm = true }:
                               <FormControl>
                               <SelectTrigger>
                                   <SelectValue placeholder="Select a day" />
-                              </Trigger>
+                              </SelectTrigger>
                               </FormControl>
                               <SelectContent>
                                   {daysOfWeek.map((day, index) => <SelectItem key={index} value={String(index)}>{day}</SelectItem>)}
