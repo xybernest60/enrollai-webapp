@@ -21,7 +21,7 @@ export function StudentsToolbar({ classes }: StudentsToolbarProps) {
   const createQueryString = useCallback(
     (name: string, value: string) => {
       const params = new URLSearchParams(searchParams.toString());
-      if (value) {
+      if (value && value !== 'all') {
         params.set(name, value);
       } else {
         params.delete(name);
@@ -53,7 +53,7 @@ export function StudentsToolbar({ classes }: StudentsToolbarProps) {
       </div>
 
       <Select
-        value={searchParams.get('class') || ''}
+        value={searchParams.get('class') || 'all'}
         onValueChange={(value) => {
             const newQuery = createQueryString('class', value);
             router.push(`${pathname}?${newQuery}`);
@@ -63,7 +63,7 @@ export function StudentsToolbar({ classes }: StudentsToolbarProps) {
           <SelectValue placeholder="Filter by class" />
         </SelectTrigger>
         <SelectContent>
-            <SelectItem value="">All Classes</SelectItem>
+            <SelectItem value="all">All Classes</SelectItem>
             {classes.map(c => (
                 <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
             ))}
