@@ -36,9 +36,11 @@ type CheckInStatus =
   | "verifying_face"
   | "success"
   | "error_face_mismatch"
-  | "error_rfid_not_found";
+  | "error_rfid_not_found"
+  | "error_no_active_session";
 
 type StudentInfo = { id: string; name: string; face_embedding: number[] | null; image_url: string | null };
+type ActiveSession = { id: string, name: string };
 
 export function CheckInForm() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -46,6 +48,7 @@ export function CheckInForm() {
   const [rfid, setRfid] = useState("");
   const [status, setStatus] = useState<CheckInStatus>("idle");
   const [student, setStudent] = useState<StudentInfo | null>(null);
+  const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
   const [faceapi, setFaceApi] = useState<FaceApi | null>(null);
   const [isModelsLoaded, setIsModelsLoaded] = useState(false);
   const { toast } = useToast();
@@ -122,6 +125,7 @@ export function CheckInForm() {
     setStatus("idle");
     setRfid("");
     setStudent(null);
+    setActiveSession(null);
     setTimeout(() => rfidInputRef.current?.focus(), 100);
   }, []);
 
@@ -132,7 +136,7 @@ export function CheckInForm() {
 
     const { data: studentData, error: rfidError } = await supabase
       .from("students")
-      .select("id, name, face_embedding, image_url")
+      .select("id, name, face_embedding, image_url, enrollments(classes(id))")
       .eq("rfid_uid", rfid.trim())
       .single();
 
@@ -144,10 +148,34 @@ export function CheckInForm() {
     }
 
     setStudent(studentData);
+    
+    // Find active session
+    const enrolledClassIds = studentData.enrollments.map((e: any) => e.classes.id);
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const currentTime = `${now.getUTCHours().toString().padStart(2, '0')}:${now.getUTCMinutes().toString().padStart(2, '0')}`;
+    
+    const { data: sessionData, error: sessionError } = await supabase
+        .from('sessions')
+        .select('id, name')
+        .in('class_id', enrolledClassIds)
+        .eq('day_of_week', dayOfWeek)
+        .lte('start_time', currentTime)
+        .gte('end_time', currentTime)
+        .single();
+    
+    if (sessionError || !sessionData) {
+      console.log("No active session found for student:", sessionError?.message);
+      setStatus("error_no_active_session");
+      setTimeout(resetState, 4000);
+      return;
+    }
+
+    setActiveSession(sessionData);
 
     if (!studentData.face_embedding || !Array.isArray(studentData.face_embedding)) {
       console.log(`Student ${studentData.name} has no face embedding. Checking in with RFID only.`);
-      await recordAttendance(studentData.id, false);
+      await recordAttendance(studentData.id, sessionData.id, false);
       return;
     }
 
@@ -155,7 +183,7 @@ export function CheckInForm() {
   };
 
   const handleFaceScan = async () => {
-    if (!videoRef.current || !faceapi || !isModelsLoaded || !student || !student.face_embedding) return;
+    if (!videoRef.current || !faceapi || !isModelsLoaded || !student || !student.face_embedding || !activeSession) return;
 
     setStatus("verifying_face");
 
@@ -174,7 +202,7 @@ export function CheckInForm() {
         console.log(`Face match for ${student.name}:`, bestMatch.toString());
 
         if (bestMatch.label !== 'unknown' && bestMatch.distance < 0.6) {
-          await recordAttendance(student.id, true);
+          await recordAttendance(student.id, activeSession.id, true);
         } else {
           setStatus("error_face_mismatch");
           setTimeout(resetState, 4000);
@@ -191,10 +219,11 @@ export function CheckInForm() {
     }
   };
 
-  const recordAttendance = async (studentId: string, faceVerified: boolean) => {
+  const recordAttendance = async (studentId: string, sessionId: string, faceVerified: boolean) => {
     const { error: attendanceError } = await supabase.from("attendance").insert({
       student_id: studentId,
-      status: "present",
+      session_id: sessionId,
+      status: "present", // We can simplify this, but let's keep it for now.
       verified_by_face: faceVerified,
     });
 
@@ -220,10 +249,10 @@ export function CheckInForm() {
         );
       case "success":
         return (
-          <div className="absolute inset-0 bg-green-500/80 flex flex-col items-center justify-center text-white">
+          <div className="absolute inset-0 bg-green-500/80 flex flex-col items-center justify-center text-white text-center p-4">
             <ShieldCheck className="h-16 w-16" />
             <p className="mt-2 text-xl font-bold">Welcome, {student?.name}!</p>
-            <p className="text-sm">Check-in successful.</p>
+            <p className="text-sm">Checked in for {activeSession?.name}.</p>
           </div>
         );
       case "error_face_mismatch":
@@ -242,12 +271,20 @@ export function CheckInForm() {
             <p className="text-sm">Please contact your teacher for enrollment.</p>
           </div>
         );
+      case "error_no_active_session":
+        return (
+          <div className="absolute inset-0 bg-yellow-500/80 flex flex-col items-center justify-center text-white text-center p-4">
+            <AlertTriangle className="h-16 w-16" />
+            <p className="mt-2 text-xl font-bold">No Active Session</p>
+            <p className="text-sm">There is no active check-in session for you right now, {student?.name}.</p>
+          </div>
+        );
       case "prompting_face_scan":
          return (
           <div className="absolute inset-0 bg-blue-500/80 flex flex-col items-center justify-center text-white text-center p-4">
             <User className="h-16 w-16" />
             <p className="mt-2 text-xl font-bold">Hello, {student?.name}!</p>
-            <p className="text-sm">Please look at the camera and click "Scan Face".</p>
+            <p className="text-sm">Look at the camera for {activeSession?.name}.</p>
           </div>
         );
       default:
@@ -255,7 +292,7 @@ export function CheckInForm() {
     }
   };
 
-  const isRfidStep = status === 'idle' || status === 'checking_rfid' || status === 'error_rfid_not_found';
+  const isRfidStep = status === 'idle' || status === 'checking_rfid' || status === 'error_rfid_not_found' || status === 'error_no_active_session';
   
   return (
     <Card>
@@ -297,7 +334,7 @@ export function CheckInForm() {
               />
             </div>
             <Button type="submit" className="w-full mt-4" disabled={status !== "idle" || !isModelsLoaded || !rfid}>
-             {isModelsLoaded ? 'Find Student' : 'Loading Models...'}
+             {status === 'checking_rfid' ? <Loader2 className="animate-spin" /> : (isModelsLoaded ? 'Find Student & Session' : 'Loading Models...')}
             </Button>
           </form>
         )}

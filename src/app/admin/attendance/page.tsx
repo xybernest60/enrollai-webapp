@@ -1,3 +1,4 @@
+
 import AdminLayout from "@/components/admin/admin-layout";
 import { supabase } from "@/lib/supabase/admin";
 import { Logo } from "@/components/logo";
@@ -9,9 +10,9 @@ export default async function AttendancePage({
     searchParams: { [key: string]: string | string[] | undefined };
 }) {
 
-    const classId = searchParams.classId as string | undefined;
-    const sessionId = searchParams.sessionId as string | undefined;
-    const date = searchParams.date as string | undefined;
+    const classId = searchParams?.classId as string | undefined;
+    const sessionId = searchParams?.sessionId as string | undefined;
+    const date = searchParams?.date as string | undefined;
 
     // Fetch all classes for the filter dropdown
     const { data: classes, error: classesError } = await supabase

@@ -24,18 +24,15 @@ export async function createSession(values: z.infer<typeof sessionSchema>) {
         };
     }
     
-    // Use a dummy date as we only care about the time for recurring sessions.
-    const dummyDate = '1970-01-01';
-    // Construct UTC string. The 'Z' is important.
-    const startTimeStr = `${dummyDate}T${validatedFields.data.start_time}:00Z`;
-    const endTimeStr = `${dummyDate}T${validatedFields.data.end_time}:00Z`;
+    // The time from the form is local time. Store it as a simple string.
+    const { start_time, end_time, ...rest } = validatedFields.data;
 
     const { data, error } = await supabase
         .from('sessions')
         .insert({
-            ...validatedFields.data,
-            start_time: startTimeStr,
-            end_time: endTimeStr,
+            ...rest,
+            start_time,
+            end_time,
         });
 
     if (error) {
@@ -276,30 +273,17 @@ export async function getAttendanceReportData(sessionId: string, date: string) {
     }
 
     // 3. Get all check-ins for that session on that specific date
-    // The date is stored in checkin_time. We need to query for records between start and end of day.
     const dateObj = new Date(date);
     const startOfDay = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()).toISOString();
     const endOfDay = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate() + 1).toISOString();
 
-    // Check if a session_id is available in attendance table, if not then it's a legacy record
-    // and we should query by class_id
-    const { data: checkHasSessionId } = await supabase.from('attendance').select('session_id').limit(1).single();
-    const hasSessionId = checkHasSessionId?.session_id;
-
-    let attendanceQuery = supabase
+    const { data: attendanceRecords, error: attendanceError } = await supabase
         .from('attendance')
         .select('student_id, checkin_time, verified_by_face')
+        .eq('session_id', sessionId)
         .gte('checkin_time', startOfDay)
         .lt('checkin_time', endOfDay);
 
-    if (hasSessionId) {
-        attendanceQuery = attendanceQuery.eq('session_id', sessionId);
-    } else {
-        attendanceQuery = attendanceQuery.eq('class_id', class_id);
-    }
-
-
-    const { data: attendanceRecords, error: attendanceError } = await attendanceQuery;
 
     if (attendanceError) {
         console.error(`Error fetching attendance for session ${sessionId} on ${date}:`, attendanceError);
@@ -308,30 +292,23 @@ export async function getAttendanceReportData(sessionId: string, date: string) {
 
     // 4. Process the data
     const attendanceMap = new Map(attendanceRecords?.map(r => [r.student_id, r]));
+    const [endHours, endMinutes] = end_time.split(':').map(Number);
+    const sessionEndDateOnReportDay = new Date(date);
+    sessionEndDateOnReportDay.setHours(endHours, endMinutes, 0, 0);
 
     const report = enrolledStudents.map(enrollment => {
         const student = enrollment.students;
         if (!student) return null;
 
         const checkIn = attendanceMap.get(student.id);
-
         let status: 'on-time' | 'late' | 'absent' = 'absent';
         let checkinTime: string | null = null;
         
         if (checkIn) {
             checkinTime = checkIn.checkin_time;
-            const sessionEndTimeUTC = new Date(end_time); // e.g., 1970-01-01T10:15:00Z
-            const studentCheckinTimeUTC = new Date(checkinTime); // e.g., 2024-05-21T10:14:00Z
+            const studentCheckinDate = new Date(checkinTime);
 
-            // Extract just the time from both dates
-            const sessionEndHours = sessionEndTimeUTC.getUTCHours();
-            const sessionEndMinutes = sessionEndTimeUTC.getUTCMinutes();
-            
-            const checkinHours = studentCheckinTimeUTC.getUTCHours();
-            const checkinMinutes = studentCheckinTimeUTC.getUTCMinutes();
-
-            // Compare times
-            if (checkinHours < sessionEndHours || (checkinHours === sessionEndHours && checkinMinutes <= sessionEndMinutes)) {
+            if (studentCheckinDate <= sessionEndDateOnReportDay) {
                 status = 'on-time';
             } else {
                 status = 'late';
