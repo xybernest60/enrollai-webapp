@@ -9,11 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { createSession, deleteSession } from "@/lib/actions";
+import { createSession, deleteSession, updateSession } from "@/lib/actions";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,13 +25,24 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+    DialogTrigger
+} from "@/components/ui/dialog";
 import { format } from 'date-fns';
+import { useState } from "react";
 
 
 type Class = { id: string; name: string; };
 type Session = { 
     id: string; 
     name: string; 
+    class_id: string;
     day_of_week: number;
     start_time: string;
     end_time: string;
@@ -58,6 +69,8 @@ const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Fri
 
 export function SessionManager({ classes = [], sessions = [], showForm = true }: SessionManagerProps) {
   const { toast } = useToast();
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingSession, setEditingSession] = useState<Session | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -68,6 +81,10 @@ export function SessionManager({ classes = [], sessions = [], showForm = true }:
       end_time: "09:15",
       is_recurring: true,
     },
+  });
+
+  const editForm = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
   });
 
   const { isSubmitting } = form.formState;
@@ -86,7 +103,29 @@ export function SessionManager({ classes = [], sessions = [], showForm = true }:
             title: "Success!",
             description: "Session has been created.",
         });
-        form.reset();
+        form.reset({ ...form.getValues(), name: ""});
+    }
+  };
+
+  const handleEditOpen = (session: Session) => {
+    setEditingSession(session);
+    editForm.reset({
+        ...session,
+        start_time: formatTime(session.start_time),
+        end_time: formatTime(session.end_time),
+    });
+    setIsEditDialogOpen(true);
+  }
+  
+  const onEditSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (!editingSession) return;
+    const result = await updateSession(editingSession.id, values);
+    if (result?.error) {
+        toast({ title: "Error", description: result.error, variant: "destructive" });
+    } else {
+        toast({ title: "Success", description: "Session updated successfully." });
+        setIsEditDialogOpen(false);
+        setEditingSession(null);
     }
   };
 
@@ -101,8 +140,8 @@ export function SessionManager({ classes = [], sessions = [], showForm = true }:
   
   const formatTime = (timeString: string) => {
     if (!timeString) return '';
-    const date = new Date(timeString);
-    return format(date, 'HH:mm');
+    const [hours, minutes] = timeString.split(':');
+    return `${hours}:${minutes}`;
   }
 
   return (
@@ -252,26 +291,29 @@ export function SessionManager({ classes = [], sessions = [], showForm = true }:
                                     <TableCell>{daysOfWeek[s.day_of_week]}</TableCell>
                                     <TableCell>{formatTime(s.start_time)} - {formatTime(s.end_time)}</TableCell>
                                     <TableCell>{s.is_recurring ? 'Recurring' : 'One-off'}</TableCell>
-                                    <TableCell className="text-right">
+                                    <TableCell className="text-right space-x-1">
+                                            <Button variant="ghost" size="icon" onClick={() => handleEditOpen(s)}>
+                                                <Pencil className="h-4 w-4" />
+                                            </Button>
                                             <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="icon">
-                                                    <Trash2 className="h-4 w-4 text-destructive"/>
-                                                </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                        This will permanently delete the session <span className="font-bold">{s.name}</span>. This action cannot be undone.
-                                                    </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleDelete(s.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="ghost" size="icon">
+                                                        <Trash2 className="h-4 w-4 text-destructive"/>
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            This will permanently delete the session <span className="font-bold">{s.name}</span>. This action cannot be undone.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleDelete(s.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
                                     </TableCell>
                                 </TableRow>
                             ))}
@@ -281,6 +323,125 @@ export function SessionManager({ classes = [], sessions = [], showForm = true }:
             </CardContent>
         </Card>
       )}
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Edit Session: {editingSession?.name}</DialogTitle>
+                <DialogDescription>
+                    Update the details for this session. Click save when you're done.
+                </DialogDescription>
+            </DialogHeader>
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 pt-4">
+                  <FormField
+                      control={editForm.control}
+                      name="class_id"
+                      render={({ field }) => (
+                          <FormItem>
+                          <FormLabel>Class</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                              <SelectTrigger>
+                                  <SelectValue placeholder="Select a class" />
+                              </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                  {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                              </SelectContent>
+                          </Select>
+                          <FormMessage />
+                          </FormItem>
+                      )}
+                  />
+                    <FormField
+                      control={editForm.control}
+                      name="name"
+                      render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>Session Name</FormLabel>
+                              <FormControl>
+                                  <Input placeholder="e.g. Morning Lecture" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                          </FormItem>
+                      )}
+                  />
+                  <FormField
+                      control={editForm.control}
+                      name="day_of_week"
+                      render={({ field }) => (
+                          <FormItem>
+                          <FormLabel>Day of the Week</FormLabel>
+                          <Select onValueChange={(val) => field.onChange(Number(val))} defaultValue={String(field.value)}>
+                              <FormControl>
+                              <SelectTrigger>
+                                  <SelectValue placeholder="Select a day" />
+                              </Trigger>
+                              </FormControl>
+                              <SelectContent>
+                                  {daysOfWeek.map((day, index) => <SelectItem key={index} value={String(index)}>{day}</SelectItem>)}
+                              </SelectContent>
+                          </Select>
+                          <FormMessage />
+                          </FormItem>
+                      )}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                          control={editForm.control}
+                          name="start_time"
+                          render={({ field }) => (
+                              <FormItem>
+                                  <FormLabel>Start Time</FormLabel>
+                                  <FormControl>
+                                      <Input type="time" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                              </FormItem>
+                          )}
+                      />
+                      <FormField
+                          control={editForm.control}
+                          name="end_time"
+                          render={({ field }) => (
+                              <FormItem>
+                                  <FormLabel>End Time</FormLabel>
+                                  <FormControl>
+                                      <Input type="time" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                              </FormItem>
+                          )}
+                      />
+                  </div>
+                  <FormField
+                      control={editForm.control}
+                      name="is_recurring"
+                      render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                          <div className="space-y-0.5">
+                              <FormLabel>Recurring Weekly</FormLabel>
+                          </div>
+                          <FormControl>
+                              <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                              />
+                          </FormControl>
+                          </FormItem>
+                      )}
+                  />
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                    <Button type="submit" disabled={editForm.formState.isSubmitting}>
+                        {editForm.formState.isSubmitting ? "Saving..." : "Save Changes"}
+                    </Button>
+                  </DialogFooter>
+              </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

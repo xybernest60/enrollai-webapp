@@ -49,6 +49,30 @@ export async function createSession(values: z.infer<typeof sessionSchema>) {
     }
 }
 
+export async function updateSession(sessionId: string, values: z.infer<typeof sessionSchema>) {
+    if (!sessionId) {
+        return { error: 'Session ID is required.' };
+    }
+    const validatedFields = sessionSchema.safeParse(values);
+    if (!validatedFields.success) {
+        return { error: JSON.stringify(validatedFields.error.flatten().fieldErrors) };
+    }
+
+    const { error } = await supabase
+        .from('sessions')
+        .update(validatedFields.data)
+        .eq('id', sessionId);
+
+    if (error) {
+        console.error(`Error updating session ${sessionId}:`, error);
+        return { error: `Database Error: ${error.message}` };
+    }
+
+    revalidatePath('/admin/sessions');
+    return { message: 'Session updated successfully.' };
+}
+
+
 export async function deleteSession(sessionId: string) {
     if (!sessionId) {
         return { error: 'Session ID is required.' };
@@ -106,6 +130,7 @@ export async function deleteClass(classId: string) {
     }
 
     revalidatePath('/admin/classes');
+    revalidatePath('/admin/sessions');
     return { message: 'Class deleted successfully.' };
 }
 
@@ -292,9 +317,12 @@ export async function getAttendanceReportData(sessionId: string, date: string) {
 
     // 4. Process the data
     const attendanceMap = new Map(attendanceRecords?.map(r => [r.student_id, r]));
+    
     const [endHours, endMinutes] = end_time.split(':').map(Number);
     const sessionEndDateOnReportDay = new Date(date);
-    sessionEndDateOnReportDay.setHours(endHours, endMinutes, 0, 0);
+    // Important: Use setUTCHours to avoid timezone issues during comparison
+    sessionEndDateOnReportDay.setUTCHours(endHours, endMinutes, 0, 0);
+
 
     const report = enrolledStudents.map(enrollment => {
         const student = enrollment.students;
