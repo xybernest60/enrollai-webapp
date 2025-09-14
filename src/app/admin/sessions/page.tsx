@@ -2,24 +2,40 @@
 import AdminLayout from "@/components/admin/admin-layout";
 import { SessionManager } from "@/components/admin/session-manager";
 import { Logo } from "@/components/logo";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/admin";
+import { SessionsToolbar } from "@/components/admin/sessions-toolbar";
 
-export default async function SessionsPage() {
+export default async function SessionsPage({
+  searchParams,
+}: {
+  searchParams?: { [key:string]: string | string[] | undefined };
+}) {
+
+    const classId = searchParams?.class as string | undefined;
+    const sortBy = searchParams?.sort as string | undefined;
 
     const { data: classes, error: classesError } = await supabase
         .from('classes')
         .select('id, name');
 
-    const { data: sessions, error: sessionsError } = await supabase
+    let sessionsQuery = supabase
         .from('sessions')
         .select(`
             *,
             classes (
                 name
             )
-        `)
-        .order('day_of_week', { ascending: true })
-        .order('start_time', { ascending: true });
+        `);
+
+    if (classId) {
+        sessionsQuery = sessionsQuery.eq('class_id', classId);
+    }
+
+    const [sortField, sortOrder] = sortBy?.split('-') || ['day_of_week', 'asc'];
+    sessionsQuery = sessionsQuery.order(sortField, { ascending: sortOrder === 'asc' });
+
+
+    const { data: sessions, error: sessionsError } = await sessionsQuery;
 
     if (classesError) console.error("Error fetching classes:", classesError.message);
     if (sessionsError) console.error("Error fetching sessions:", sessionsError.message);
@@ -41,10 +57,17 @@ export default async function SessionsPage() {
                     </div>
                 </div>
 
-                <SessionManager 
-                    classes={classes ?? []} 
-                    sessions={sessions ?? []} 
-                />
+                <div className="grid gap-8 md:grid-cols-3">
+                    <div className="md:col-span-1">
+                        <SessionManager classes={classes ?? []} />
+                    </div>
+                    <div className="md:col-span-2">
+                        <div className="space-y-4">
+                            <SessionsToolbar classes={classes ?? []} />
+                            <SessionManager sessions={sessions ?? []} showForm={false} />
+                        </div>
+                    </div>
+                </div>
 
             </div>
         </AdminLayout>

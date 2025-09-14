@@ -14,13 +14,8 @@ const sessionSchema = z.object({
     is_recurring: z.boolean(),
 });
 
-export async function createSession(formData: FormData) {
-    const rawFormData = Object.fromEntries(formData.entries());
-
-    // Manual boolean conversion
-    rawFormData.is_recurring = rawFormData.is_recurring === 'true';
-
-    const validatedFields = sessionSchema.safeParse(rawFormData);
+export async function createSession(values: z.infer<typeof sessionSchema>) {
+    const validatedFields = sessionSchema.safeParse(values);
 
     if (!validatedFields.success) {
         console.error("Validation errors:", validatedFields.error.flatten().fieldErrors);
@@ -29,13 +24,11 @@ export async function createSession(formData: FormData) {
         };
     }
     
-    // Combine date and time for Supabase timestamp
-    // We use a dummy date because we only care about the time part for recurring sessions.
-    // The actual date will be handled when generating daily attendance.
+    // Use a dummy date as we only care about the time for recurring sessions.
     const dummyDate = '1970-01-01';
-    const startTimeStr = `${dummyDate}T${validatedFields.data.start_time}:00`;
-    const endTimeStr = `${dummyDate}T${validatedFields.data.end_time}:00`;
-
+    // Construct UTC string. The 'Z' is important.
+    const startTimeStr = `${dummyDate}T${validatedFields.data.start_time}:00Z`;
+    const endTimeStr = `${dummyDate}T${validatedFields.data.end_time}:00Z`;
 
     const { data, error } = await supabase
         .from('sessions')
@@ -231,4 +224,114 @@ export async function updateStudent(studentId: string, values: z.infer<typeof up
 
     revalidatePath('/admin/students');
     return { message: 'Student updated successfully.' };
+}
+
+// Action to fetch sessions for a specific class
+export async function getSessionsForClass(classId: string) {
+    if (!classId) return { error: 'Class ID is required.', data: null };
+
+    const { data, error } = await supabase
+        .from('sessions')
+        .select('id, name')
+        .eq('class_id', classId)
+        .order('name');
+    
+    if (error) {
+        console.error(`Error fetching sessions for class ${classId}:`, error);
+        return { error: error.message, data: null };
+    }
+    
+    return { error: null, data };
+}
+
+
+export async function getAttendanceReportData(sessionId: string, date: string) {
+    if (!sessionId || !date) {
+        return { error: 'Session ID and date are required.', data: null };
+    }
+
+    // 1. Get session details to find the class_id and time window
+    const { data: sessionData, error: sessionError } = await supabase
+        .from('sessions')
+        .select('class_id, start_time, end_time')
+        .eq('id', sessionId)
+        .single();
+
+    if (sessionError || !sessionData) {
+        console.error(`Error fetching session ${sessionId}:`, sessionError);
+        return { error: 'Could not find the specified session.', data: null };
+    }
+    
+    const { class_id, start_time, end_time } = sessionData;
+
+    // 2. Get all students enrolled in that class
+    const { data: enrolledStudents, error: enrolledError } = await supabase
+        .from('enrollments')
+        .select('students (*)')
+        .eq('class_id', class_id);
+
+    if (enrolledError || !enrolledStudents) {
+        console.error(`Error fetching enrollments for class ${class_id}:`, enrolledError);
+        return { error: 'Could not fetch enrolled students.', data: null };
+    }
+
+    // 3. Get all check-ins for that session on that specific date
+    // The date is stored in checkin_time. We need to query for records between start and end of day.
+    const dateObj = new Date(date);
+    const startOfDay = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()).toISOString();
+    const endOfDay = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate() + 1).toISOString();
+
+    const { data: attendanceRecords, error: attendanceError } = await supabase
+        .from('attendance')
+        .select('student_id, checkin_time, verified_by_face')
+        .eq('session_id', sessionId)
+        .gte('checkin_time', startOfDay)
+        .lt('checkin_time', endOfDay);
+
+    if (attendanceError) {
+        console.error(`Error fetching attendance for session ${sessionId} on ${date}:`, attendanceError);
+        return { error: 'Could not fetch attendance records.', data: null };
+    }
+
+    // 4. Process the data
+    const attendanceMap = new Map(attendanceRecords?.map(r => [r.student_id, r]));
+
+    const report = enrolledStudents.map(enrollment => {
+        const student = enrollment.students;
+        if (!student) return null;
+
+        const checkIn = attendanceMap.get(student.id);
+
+        let status: 'on-time' | 'late' | 'absent' = 'absent';
+        let checkinTime: string | null = null;
+        
+        if (checkIn) {
+            checkinTime = checkIn.checkin_time;
+            const sessionStartTime = new Date(start_time);
+            const sessionEndTime = new Date(end_time);
+            const studentCheckinTime = new Date(checkinTime);
+
+            // We only care about the time, so set the date part to be the same
+            sessionStartTime.setFullYear(2000, 0, 1);
+            sessionEndTime.setFullYear(2000, 0, 1);
+            studentCheckinTime.setFullYear(2000, 0, 1);
+            
+            if (studentCheckinTime <= sessionEndTime) {
+                status = 'on-time';
+            } else {
+                status = 'late';
+            }
+        }
+        
+        return {
+            student_id: student.id,
+            student_name: student.name,
+            student_image_url: student.image_url,
+            status,
+            checkin_time: checkinTime,
+            verified_by_face: checkIn?.verified_by_face ?? false,
+        };
+    }).filter(Boolean);
+    
+    return { data: report, error: null };
 }

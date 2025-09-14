@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useForm, SubmitHandler } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { format } from 'date-fns';
+
 
 type Class = { id: string; name: string; };
 type Session = { 
@@ -38,8 +40,9 @@ type Session = {
 };
 
 type SessionManagerProps = {
-  classes: Class[];
-  sessions: Session[];
+  classes?: Class[];
+  sessions?: Session[];
+  showForm?: boolean;
 };
 
 const formSchema = z.object({
@@ -53,7 +56,7 @@ const formSchema = z.object({
 
 const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-export function SessionManager({ classes, sessions }: SessionManagerProps) {
+export function SessionManager({ classes = [], sessions = [], showForm = true }: SessionManagerProps) {
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -70,17 +73,9 @@ export function SessionManager({ classes, sessions }: SessionManagerProps) {
   const { isSubmitting } = form.formState;
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    const formData = new FormData();
-    Object.entries(values).forEach(([key, value]) => {
-        formData.append(key, String(value));
-    });
+    const result = await createSession(values);
     
-    const result = await createSession(formData);
-
-    if (result?.errors) {
-        // Handle validation errors from server
-        console.error(result.errors);
-    } else if (result?.error) {
+    if (result?.error) {
         toast({
             title: "An error occurred.",
             description: result.error,
@@ -106,136 +101,137 @@ export function SessionManager({ classes, sessions }: SessionManagerProps) {
   
   const formatTime = (timeString: string) => {
     if (!timeString) return '';
-    // The time is stored as `1970-01-01THH:mm:ss`
-    // We can just extract the HH:mm part
-    return timeString.substring(11, 16);
+    const date = new Date(timeString);
+    return format(date, 'HH:mm');
   }
 
   return (
-    <div className="grid gap-8 md:grid-cols-3">
-        <div className="md:col-span-1">
-             <Card>
-                <CardHeader>
-                    <CardTitle>Create New Session</CardTitle>
-                    <CardDescription>Define a new check-in period for a class.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                        <FormField
-                            control={form.control}
-                            name="class_id"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Class</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select a class" />
-                                    </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                         <FormField
-                            control={form.control}
-                            name="name"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Session Name</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="e.g. Morning Lecture" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="day_of_week"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Day of the Week</FormLabel>
-                                <Select onValueChange={(val) => field.onChange(Number(val))} defaultValue={String(field.value)}>
-                                    <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select a day" />
-                                    </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {daysOfWeek.map((day, index) => <SelectItem key={index} value={String(index)}>{day}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <div className="grid grid-cols-2 gap-4">
-                            <FormField
-                                control={form.control}
-                                name="start_time"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Start Time</FormLabel>
-                                        <FormControl>
-                                            <Input type="time" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="end_time"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>End Time</FormLabel>
-                                        <FormControl>
-                                            <Input type="time" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
-                        <FormField
-                            control={form.control}
-                            name="is_recurring"
-                            render={({ field }) => (
-                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                                <div className="space-y-0.5">
-                                    <FormLabel>Recurring Weekly</FormLabel>
-                                    <p className="text-sm text-muted-foreground">Does this session repeat every week?</p>
-                                </div>
-                                <FormControl>
-                                    <Switch
-                                        checked={field.value}
-                                        onCheckedChange={field.onChange}
-                                    />
-                                </FormControl>
-                                </FormItem>
-                            )}
-                        />
-                        <Button type="submit" className="w-full" disabled={isSubmitting}>
-                            {isSubmitting ? "Creating..." : "Create Session"}
-                        </Button>
-                    </form>
-                </Form>
-                </CardContent>
-            </Card>
-        </div>
-        <div className="md:col-span-2">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Scheduled Sessions</CardTitle>
-                    <CardDescription>All recurring check-in sessions.</CardDescription>
-                </CardHeader>
-                <CardContent>
+    <>
+      {showForm && (
+        <Card>
+          <CardHeader>
+              <CardTitle>Create New Session</CardTitle>
+              <CardDescription>Define a new check-in period for a class.</CardDescription>
+          </CardHeader>
+          <CardContent>
+          <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  <FormField
+                      control={form.control}
+                      name="class_id"
+                      render={({ field }) => (
+                          <FormItem>
+                          <FormLabel>Class</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                              <SelectTrigger>
+                                  <SelectValue placeholder="Select a class" />
+                              </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                  {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                              </SelectContent>
+                          </Select>
+                          <FormMessage />
+                          </FormItem>
+                      )}
+                  />
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>Session Name</FormLabel>
+                              <FormControl>
+                                  <Input placeholder="e.g. Morning Lecture" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                          </FormItem>
+                      )}
+                  />
+                  <FormField
+                      control={form.control}
+                      name="day_of_week"
+                      render={({ field }) => (
+                          <FormItem>
+                          <FormLabel>Day of the Week</FormLabel>
+                          <Select onValueChange={(val) => field.onChange(Number(val))} defaultValue={String(field.value)}>
+                              <FormControl>
+                              <SelectTrigger>
+                                  <SelectValue placeholder="Select a day" />
+                              </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                  {daysOfWeek.map((day, index) => <SelectItem key={index} value={String(index)}>{day}</SelectItem>)}
+                              </SelectContent>
+                          </Select>
+                          <FormMessage />
+                          </FormItem>
+                      )}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                          control={form.control}
+                          name="start_time"
+                          render={({ field }) => (
+                              <FormItem>
+                                  <FormLabel>Start Time</FormLabel>
+                                  <FormControl>
+                                      <Input type="time" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                              </FormItem>
+                          )}
+                      />
+                      <FormField
+                          control={form.control}
+                          name="end_time"
+                          render={({ field }) => (
+                              <FormItem>
+                                  <FormLabel>End Time</FormLabel>
+                                  <FormControl>
+                                      <Input type="time" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                              </FormItem>
+                          )}
+                      />
+                  </div>
+                  <FormField
+                      control={form.control}
+                      name="is_recurring"
+                      render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                          <div className="space-y-0.5">
+                              <FormLabel>Recurring Weekly</FormLabel>
+                              <p className="text-sm text-muted-foreground">Does this session repeat every week?</p>
+                          </div>
+                          <FormControl>
+                              <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                              />
+                          </FormControl>
+                          </FormItem>
+                      )}
+                  />
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                      {isSubmitting ? "Creating..." : "Create Session"}
+                  </Button>
+              </form>
+          </Form>
+          </CardContent>
+        </Card>
+      )}
+
+      {!showForm && (
+        <Card>
+            <CardHeader>
+                <CardTitle>Scheduled Sessions</CardTitle>
+                <CardDescription>All recurring check-in sessions.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="border rounded-md">
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -248,7 +244,7 @@ export function SessionManager({ classes, sessions }: SessionManagerProps) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {sessions.length === 0 && <TableRow><TableCell colSpan={6} className="text-center h-24">No sessions scheduled.</TableCell></TableRow>}
+                            {sessions.length === 0 && <TableRow><TableCell colSpan={6} className="text-center h-24">No sessions found.</TableCell></TableRow>}
                             {sessions.map(s => (
                                 <TableRow key={s.id}>
                                     <TableCell className="font-medium">{s.name}</TableCell>
@@ -257,7 +253,7 @@ export function SessionManager({ classes, sessions }: SessionManagerProps) {
                                     <TableCell>{formatTime(s.start_time)} - {formatTime(s.end_time)}</TableCell>
                                     <TableCell>{s.is_recurring ? 'Recurring' : 'One-off'}</TableCell>
                                     <TableCell className="text-right">
-                                         <AlertDialog>
+                                            <AlertDialog>
                                             <AlertDialogTrigger asChild>
                                                 <Button variant="ghost" size="icon">
                                                     <Trash2 className="h-4 w-4 text-destructive"/>
@@ -281,11 +277,10 @@ export function SessionManager({ classes, sessions }: SessionManagerProps) {
                             ))}
                         </TableBody>
                     </Table>
-                </CardContent>
-            </Card>
-        </div>
-    </div>
+                </div>
+            </CardContent>
+        </Card>
+      )}
+    </>
   );
 }
-
-    

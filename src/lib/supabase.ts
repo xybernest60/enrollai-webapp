@@ -7,4 +7,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase URL or anonymous key.');
 }
 
+// This is the public client that can be used on the server or the client.
+// It will use the anon key and RLS.
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
