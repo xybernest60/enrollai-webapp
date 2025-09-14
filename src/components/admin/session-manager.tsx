@@ -140,8 +140,13 @@ export function SessionManager({ classes = [], sessions = [], showForm = true }:
   
   const formatTime = (timeString: string) => {
     if (!timeString) return '';
-    const [hours, minutes] = timeString.split(':');
-    return `${hours}:${minutes}`;
+    try {
+        const date = new Date(timeString);
+        return format(date, 'HH:mm');
+    } catch (e) {
+        // Fallback for simple time strings
+        return timeString.substring(0, 5);
+    }
   }
 
   return (

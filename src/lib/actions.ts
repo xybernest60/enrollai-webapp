@@ -57,10 +57,19 @@ export async function updateSession(sessionId: string, values: z.infer<typeof se
     if (!validatedFields.success) {
         return { error: JSON.stringify(validatedFields.error.flatten().fieldErrors) };
     }
+    
+    const { start_time, end_time, ...rest } = validatedFields.data;
+    const today = new Date().toISOString().split('T')[0];
+
+    const updateData = {
+        ...rest,
+        start_time: `${today}T${start_time}:00`,
+        end_time: `${today}T${end_time}:00`,
+    };
 
     const { error } = await supabase
         .from('sessions')
-        .update(validatedFields.data)
+        .update(updateData)
         .eq('id', sessionId);
 
     if (error) {
@@ -318,9 +327,10 @@ export async function getAttendanceReportData(sessionId: string, date: string) {
     // 4. Process the data
     const attendanceMap = new Map(attendanceRecords?.map(r => [r.student_id, r]));
     
-    const [endHours, endMinutes] = end_time.split(':').map(Number);
+    const endHours = new Date(end_time).getUTCHours();
+    const endMinutes = new Date(end_time).getUTCMinutes();
+    
     const sessionEndDateOnReportDay = new Date(date);
-    // Important: Use setUTCHours to avoid timezone issues during comparison
     sessionEndDateOnReportDay.setUTCHours(endHours, endMinutes, 0, 0);
 
 
