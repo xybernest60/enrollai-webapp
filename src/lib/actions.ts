@@ -24,15 +24,18 @@ export async function createSession(values: z.infer<typeof sessionSchema>) {
         };
     }
     
-    // The time from the form is local time. Store it as a simple string.
     const { start_time, end_time, ...rest } = validatedFields.data;
+    
+    // Combine with a placeholder date for storing in a timestamp field.
+    const startTimeWithDate = `1970-01-01T${start_time}:00`;
+    const endTimeWithDate = `1970-01-01T${end_time}:00`;
 
     const { data, error } = await supabase
         .from('sessions')
         .insert({
             ...rest,
-            start_time,
-            end_time,
+            start_time: startTimeWithDate,
+            end_time: endTimeWithDate,
         });
 
     if (error) {
@@ -60,10 +63,13 @@ export async function updateSession(sessionId: string, values: z.infer<typeof se
     
     const { start_time, end_time, ...rest } = validatedFields.data;
 
+    const startTimeWithDate = `1970-01-01T${start_time}:00`;
+    const endTimeWithDate = `1970-01-01T${end_time}:00`;
+
     const updateData = {
         ...rest,
-        start_time,
-        end_time,
+        start_time: startTimeWithDate,
+        end_time: endTimeWithDate,
     };
 
     const { error } = await supabase
@@ -326,9 +332,12 @@ export async function getAttendanceReportData(sessionId: string, date: string) {
     // 4. Process the data
     const attendanceMap = new Map(attendanceRecords?.map(r => [r.student_id, r]));
     
-    const [endHours, endMinutes] = end_time.split(':').map(Number);
+    // The end_time is just a time string, e.g., "09:15:00".
+    // We need to create a full Date object for the report date with this end time.
+    const [endHours, endMinutes, endSeconds] = end_time.split(':').map(Number);
     const sessionEndDateOnReportDay = new Date(date);
-    sessionEndDateOnReportDay.setUTCHours(endHours, endMinutes, 0, 0);
+    // Use setUTCHours to align with the database's timezone (likely UTC)
+    sessionEndDateOnReportDay.setUTCHours(endHours, endMinutes, endSeconds || 0, 0);
 
 
     const report = enrolledStudents.map(enrollment => {

@@ -8,7 +8,7 @@ import { SessionsToolbar } from "@/components/admin/sessions-toolbar";
 export default async function SessionsPage({
   searchParams,
 }: {
-  searchParams?: { [key:string]: string | string[] | undefined };
+  searchParams: { [key: string]: string | string[] | undefined };
 }) {
 
     const classId = searchParams?.class as string | undefined;
