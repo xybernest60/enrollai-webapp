@@ -317,7 +317,7 @@ export function SessionManager({ classes = [], sessions = [], showForm = true }:
                                                         <AlertDialogDescription>
                                                             This will permanently delete the session <span className="font-bold">{s.name}</span>. This action cannot be undone.
                                                         </AlertDialogDescription>
-                                                    </AlertDialogFooter>
+                                                    </AlertDialogHeader>
                                                     <AlertDialogFooter>
                                                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                                                         <AlertDialogAction onClick={() => handleDelete(s.id)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
@@ -455,5 +455,3 @@ export function SessionManager({ classes = [], sessions = [], showForm = true }:
     </>
   );
 }
-
-    
