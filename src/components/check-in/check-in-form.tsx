@@ -152,9 +152,10 @@ export function CheckInForm() {
     
     // Find active session
     const enrolledClassIds = studentData.enrollments.map((e: any) => e.classes.id);
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const nowInLocal = new Date();
+    const dayOfWeek = nowInLocal.getDay();
+    
     const { data: potentialSessions, error: sessionError } = await supabase
       .from('sessions')
       .select('id, name, start_time, end_time')
@@ -168,26 +169,21 @@ export function CheckInForm() {
         return;
     }
     
+    const nowInUtc = zonedTimeToUtc(nowInLocal, timeZone);
+
     const activeSession = potentialSessions.find(session => {
-        // DB times are UTC, e.g. "1970-01-01T10:00:00+00:00"
-        const startTime = new Date(session.start_time);
-        const endTime = new Date(session.end_time);
+        const startTime = new Date(session.start_time); // e.g., 1970-01-01T09:00:00Z
+        const endTime = new Date(session.end_time);   // e.g., 1970-01-01T10:00:00Z
 
-        // Get the time part from the UTC timestamp
-        const startHours = startTime.getUTCHours();
-        const startMinutes = startTime.getUTCMinutes();
-        const endHours = endTime.getUTCHours();
-        const endMinutes = endTime.getUTCMinutes();
-
-        // Create Date objects for today with the session's start and end times
-        const sessionStartToday = new Date(now);
-        sessionStartToday.setHours(startHours, startMinutes, 0, 0);
+        const sessionStartToday = new Date(nowInUtc);
+        sessionStartToday.setUTCHours(startTime.getUTCHours(), startTime.getUTCMinutes(), startTime.getUTCSeconds(), 0);
         
-        const sessionEndToday = new Date(now);
-        sessionEndToday.setHours(endHours, endMinutes, 0, 0);
-
-        return now >= sessionStartToday && now <= sessionEndToday;
+        const sessionEndToday = new Date(nowInUtc);
+        sessionEndToday.setUTCHours(endTime.getUTCHours(), endTime.getUTCMinutes(), endTime.getUTCSeconds(), 0);
+        
+        return nowInUtc >= sessionStartToday && nowInUtc <= sessionEndToday;
     });
+
 
     if (!activeSession) {
       console.log("No active session found for student.");
@@ -380,5 +376,7 @@ export function CheckInForm() {
     </Card>
   );
 }
+
+    
 
     
