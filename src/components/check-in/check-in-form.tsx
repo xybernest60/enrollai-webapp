@@ -38,7 +38,8 @@ type CheckInStatus =
   | "success"
   | "error_face_mismatch"
   | "error_rfid_not_found"
-  | "error_no_active_session";
+  | "error_no_active_session"
+  | "error_already_checked_in";
 
 type StudentInfo = { id: string; name: string; face_embedding: number[] | null; image_url: string | null };
 type ActiveSession = { id: string, name: string };
@@ -50,6 +51,7 @@ export function CheckInForm() {
   const [status, setStatus] = useState<CheckInStatus>("idle");
   const [student, setStudent] = useState<StudentInfo | null>(null);
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
+  const [existingCheckInTime, setExistingCheckInTime] = useState<string | null>(null);
   const [faceapi, setFaceApi] = useState<FaceApi | null>(null);
   const [isModelsLoaded, setIsModelsLoaded] = useState(false);
   const { toast } = useToast();
@@ -127,6 +129,7 @@ export function CheckInForm() {
     setRfid("");
     setStudent(null);
     setActiveSession(null);
+    setExistingCheckInTime(null);
     setTimeout(() => rfidInputRef.current?.focus(), 100);
   }, []);
 
@@ -193,6 +196,37 @@ export function CheckInForm() {
     }
 
     setActiveSession(activeSession);
+    
+    // Check for existing check-in for this session on the current day
+    const todayStart = new Date(nowInLocal);
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(nowInLocal);
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const { data: existingAttendance, error: existingError } = await supabase
+      .from('attendance')
+      .select('checkin_time')
+      .eq('student_id', studentData.id)
+      .eq('session_id', activeSession.id)
+      .gte('checkin_time', todayStart.toISOString())
+      .lte('checkin_time', todayEnd.toISOString())
+      .single();
+
+    if (existingError && existingError.code !== 'PGRST116') { // PGRST116 means no rows found
+        console.error("Error checking for existing attendance:", existingError);
+        toast({ title: "Database Error", description: "Could not verify attendance status.", variant: "destructive" });
+        resetState();
+        return;
+    }
+
+    if (existingAttendance) {
+        const checkinTimeInLocal = format(toZonedTime(existingAttendance.checkin_time, timeZone), 'p');
+        setExistingCheckInTime(checkinTimeInLocal);
+        setStatus("error_already_checked_in");
+        setTimeout(resetState, 4000);
+        return;
+    }
+
 
     if (!studentData.face_embedding || !Array.isArray(studentData.face_embedding)) {
       console.log(`Student ${studentData.name} has no face embedding. Checking in with RFID only.`);
@@ -300,6 +334,14 @@ export function CheckInForm() {
             <p className="text-sm">There is no active check-in session for you right now, {student?.name}.</p>
           </div>
         );
+      case "error_already_checked_in":
+        return (
+          <div className="absolute inset-0 bg-blue-500/80 flex flex-col items-center justify-center text-white text-center p-4">
+            <CheckCircle className="h-16 w-16" />
+            <p className="mt-2 text-xl font-bold">Already Checked In!</p>
+            <p className="text-sm">{student?.name}, you already checked in for {activeSession?.name} at {existingCheckInTime}.</p>
+          </div>
+        );
       case "prompting_face_scan":
          return (
           <div className="absolute inset-0 bg-blue-500/80 flex flex-col items-center justify-center text-white text-center p-4">
@@ -313,7 +355,7 @@ export function CheckInForm() {
     }
   };
 
-  const isRfidStep = status === 'idle' || status === 'checking_rfid' || status === 'error_rfid_not_found' || status === 'error_no_active_session';
+  const isRfidStep = ['idle', 'checking_rfid', 'error_rfid_not_found', 'error_no_active_session', 'error_already_checked_in'].includes(status);
   
   return (
     <Card>
@@ -376,5 +418,3 @@ export function CheckInForm() {
     </Card>
   );
 }
-
-    
