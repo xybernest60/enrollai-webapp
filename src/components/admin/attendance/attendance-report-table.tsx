@@ -2,7 +2,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { format } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { ShieldCheck } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -23,15 +23,8 @@ type AttendanceReportTableProps = {
 export function AttendanceReportTable({ reportData }: AttendanceReportTableProps) {
   const formatTime = (dateTimeString: string | null) => {
     if (!dateTimeString) return '—';
-    return format(new Date(dateTimeString), 'HH:mm:ss');
-  };
-
-  const getStatusVariant = (status: ReportData['status']) => {
-    switch (status) {
-      case 'on-time': return 'success';
-      case 'late': return 'warning';
-      case 'absent': return 'destructive';
-    }
+    // Display time in the user's local timezone
+    return formatInTimeZone(new Date(dateTimeString), Intl.DateTimeFormat().resolvedOptions().timeZone, 'HH:mm:ss');
   };
   
   const getStatusClass = (status: ReportData['status']) => {

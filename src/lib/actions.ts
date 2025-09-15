@@ -313,8 +313,8 @@ export async function getAttendanceReportData(sessionId: string, date: string) {
 
     // 3. Get all check-ins for that session on that specific date
     const dateObj = new Date(date);
-    const startOfDay = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()).toISOString();
-    const endOfDay = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate() + 1).toISOString();
+    const startOfDay = new Date(Date.UTC(dateObj.getUTCFullYear(), dateObj.getUTCMonth(), dateObj.getUTCDate())).toISOString();
+    const endOfDay = new Date(Date.UTC(dateObj.getUTCFullYear(), dateObj.getUTCMonth(), dateObj.getUTCDate() + 1)).toISOString();
 
     const { data: attendanceRecords, error: attendanceError } = await supabase
         .from('attendance')
@@ -332,12 +332,14 @@ export async function getAttendanceReportData(sessionId: string, date: string) {
     // 4. Process the data
     const attendanceMap = new Map(attendanceRecords?.map(r => [r.student_id, r]));
     
-    // The end_time is just a time string, e.g., "09:15:00".
-    // We need to create a full Date object for the report date with this end time.
-    const [endHours, endMinutes, endSeconds] = end_time.split(':').map(Number);
-    const sessionEndDateOnReportDay = new Date(date);
-    // Use setUTCHours to align with the database's timezone (likely UTC)
-    sessionEndDateOnReportDay.setUTCHours(endHours, endMinutes, endSeconds || 0, 0);
+    // The end_time is a timestamp like '1970-01-01T09:15:00+00:00'. We need its time component.
+    const sessionEndTime = new Date(end_time);
+    const endHours = sessionEndTime.getUTCHours();
+    const endMinutes = sessionEndTime.getUTCMinutes();
+    const endSeconds = sessionEndTime.getUTCSeconds();
+    
+    // Create a new Date object for the report date in UTC, then set the session's end time.
+    const sessionEndDateOnReportDay = new Date(Date.UTC(dateObj.getUTCFullYear(), dateObj.getUTCMonth(), dateObj.getUTCDate(), endHours, endMinutes, endSeconds));
 
 
     const report = enrolledStudents.map(enrollment => {
@@ -371,4 +373,3 @@ export async function getAttendanceReportData(sessionId: string, date: string) {
     
     return { data: report, error: null };
 }
-
