@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase/client";
-import { zonedTimeToUtc, utcToZonedTime, format } from 'date-fns-tz';
+import { toZonedTime, fromZonedTime, format } from 'date-fns-tz';
 
 // Dynamically import face-api.js
 type FaceApi = typeof import("@vladmandic/face-api");
@@ -169,7 +169,7 @@ export function CheckInForm() {
         return;
     }
     
-    const nowInUtc = zonedTimeToUtc(nowInLocal, timeZone);
+    const nowInUtc = fromZonedTime(nowInLocal, timeZone)
 
     const activeSession = potentialSessions.find(session => {
         const startTime = new Date(session.start_time); // e.g., 1970-01-01T09:00:00Z
@@ -376,7 +376,5 @@ export function CheckInForm() {
     </Card>
   );
 }
-
-    
 
     
