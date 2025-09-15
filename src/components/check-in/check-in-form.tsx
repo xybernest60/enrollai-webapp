@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase/client";
+import { zonedTimeToUtc, utcToZonedTime, format } from 'date-fns-tz';
 
 // Dynamically import face-api.js
 type FaceApi = typeof import("@vladmandic/face-api");
@@ -153,29 +154,53 @@ export function CheckInForm() {
     const enrolledClassIds = studentData.enrollments.map((e: any) => e.classes.id);
     const now = new Date();
     const dayOfWeek = now.getDay();
-    const currentTime = `${now.getUTCHours().toString().padStart(2, '0')}:${now.getUTCMinutes().toString().padStart(2, '0')}`;
+
+    const { data: potentialSessions, error: sessionError } = await supabase
+      .from('sessions')
+      .select('id, name, start_time, end_time')
+      .in('class_id', enrolledClassIds)
+      .eq('day_of_week', dayOfWeek);
     
-    const { data: sessionData, error: sessionError } = await supabase
-        .from('sessions')
-        .select('id, name')
-        .in('class_id', enrolledClassIds)
-        .eq('day_of_week', dayOfWeek)
-        .lte('start_time', currentTime)
-        .gte('end_time', currentTime)
-        .single();
+    if (sessionError) {
+        console.error("Error fetching potential sessions:", sessionError);
+        setStatus("error_no_active_session");
+        setTimeout(resetState, 4000);
+        return;
+    }
     
-    if (sessionError || !sessionData) {
-      console.log("No active session found for student:", sessionError?.message);
+    const activeSession = potentialSessions.find(session => {
+        // DB times are UTC, e.g. "1970-01-01T10:00:00+00:00"
+        const startTime = new Date(session.start_time);
+        const endTime = new Date(session.end_time);
+
+        // Get the time part from the UTC timestamp
+        const startHours = startTime.getUTCHours();
+        const startMinutes = startTime.getUTCMinutes();
+        const endHours = endTime.getUTCHours();
+        const endMinutes = endTime.getUTCMinutes();
+
+        // Create Date objects for today with the session's start and end times
+        const sessionStartToday = new Date(now);
+        sessionStartToday.setHours(startHours, startMinutes, 0, 0);
+        
+        const sessionEndToday = new Date(now);
+        sessionEndToday.setHours(endHours, endMinutes, 0, 0);
+
+        return now >= sessionStartToday && now <= sessionEndToday;
+    });
+
+    if (!activeSession) {
+      console.log("No active session found for student.");
       setStatus("error_no_active_session");
       setTimeout(resetState, 4000);
       return;
     }
 
-    setActiveSession(sessionData);
+    setActiveSession(activeSession);
 
     if (!studentData.face_embedding || !Array.isArray(studentData.face_embedding)) {
       console.log(`Student ${studentData.name} has no face embedding. Checking in with RFID only.`);
-      await recordAttendance(studentData.id, sessionData.id, false);
+      await recordAttendance(studentData.id, activeSession.id, false);
       return;
     }
 
@@ -355,3 +380,5 @@ export function CheckInForm() {
     </Card>
   );
 }
+
+    
